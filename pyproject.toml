@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
+    "matplotlib"
 ]
 requires-python = "> 3.11"
 keywords = ["Physics", "Acoustics", "Endfire", "Microphone Array"]
