@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "endfiresim"
+version = "0.0.1"
+description = "Simulation of acoustic endfire arrays."
+authors = [
+    { name = "jake-is_ESD-protected", email = "j.tschavoll@tu-berlin.de" }
+]
+license = { text = "GPL-3.0-only" }
+classifiers = [
+    "Intended Audience :: Scientists",
+    "License :: GPL-3.0-only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "numpy",
+]
+requires-python = "> 3.11"
+keywords = ["Physics", "Acoustics", "Endfire", "Microphone Array"]
+urls = { homepage = "https://github.com/jake-is-ESD-protected/endfire-sim" }
+
+[tool.setuptools.packages.find]
+include = ["endfiresim"]
