@@ -19,25 +19,50 @@ class CWaveModelPlanar(CWaveModel):
         self.azim = azim
         self.elev = elev
         self.type = "planar"
+        self.omega = 2*np.pi*f
+        self.k = self.omega / self.c
+        self.kx = self.k * np.cos(self.azim) * np.cos(self.elev)
+        self.ky = self.k * np.sin(self.azim) * np.cos(self.elev)
+        self.kz = self.k * np.sin(self.elev)
 
-    def p(self, t: float | np.ndarray, pos_xyz: tuple):
-        omega = 2*np.pi * self.f
-        k = omega / self.c
-        kx = k * np.cos(self.azim) * np.cos(self.elev)
-        ky = k * np.sin(self.azim) * np.cos(self.elev)
-        kz = k * np.sin(self.elev)
-        phase = kx * pos_xyz[0] + ky * pos_xyz[1] + kz * pos_xyz[2] - omega * t
+    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
+        t = np.asarray(t)
+        pos_xyz = np.asarray(pos_xyz)
+        if len(t.shape) > 0 and pos_xyz.shape != (3,):
+            raise ValueError("Either fix one point in time or one in space!")
+        phase = self.kx * pos_xyz[0] + self.ky * pos_xyz[1] + self.kz * pos_xyz[2] - self.omega * t
         return self.amp * np.exp(1j * phase)
     
 
 class CWaveModelSpheric(CWaveModel):
     def __init__(self, f: float, amp: int=1, c=343, source_xyz: tuple=(0, 0, 0)) -> None:
-        raise NotImplementedError()
         self.f = f
         self.amp = amp
         self.c = c
         self.source_xyz = source_xyz
         self.type = "spheric"
+        self.omega = 2*np.pi*f
+        self.k = self.omega / self.c
 
-    def p(self, t: float | np.ndarray, pos_xyz: np.ndarray):
-        pass
+    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
+        t = np.asarray(t)
+        pos_xyz = np.asarray(pos_xyz)
+        if t.ndim > 0 and pos_xyz.ndim > 1 and pos_xyz.shape[0] > 3:
+            raise ValueError("Either fix one point in time or one in space!")
+        
+        delta = pos_xyz - np.reshape(self.source_xyz, (3,) + (1,)*(pos_xyz.ndim-1))
+        r = np.linalg.norm(delta, axis=0)
+        if t.ndim == 0:
+            full_phase = self.k * r - self.omega * t
+        else:
+            full_phase = self.k * r - self.omega * t[..., np.newaxis, np.newaxis]
+        
+        # Calculate magnitude (avoid division by zero)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            magnitude = np.where(r > 1/self.k, self.amp / r, np.inf)
+            wave = magnitude * np.exp(-1j * full_phase)
+        
+        # Clean up results
+        result = np.where(np.isinf(magnitude), np.nan, wave)
+        return np.real_if_close(np.squeeze(result))
+
