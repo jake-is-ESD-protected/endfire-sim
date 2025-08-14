@@ -53,7 +53,7 @@ def test_wave_planar_p_point_frame():
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_TIME_FRAME)
     npt.assert_allclose(np.max(np.real(p)), pw.amp, atol=1e-3)
-    npt.assert_allclose(np.mean(np.real(p)), 0, atol=1e7)
+    npt.assert_allclose(np.mean(np.real(p)), 0, atol=1e-3)
 
 
 def test_wave_planar_p_field_step():
@@ -62,7 +62,7 @@ def test_wave_planar_p_field_step():
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_FIELD_POS)[1:]
     npt.assert_allclose(np.max(np.real(p)), pw.amp, atol=1e-3)
-    npt.assert_allclose(np.mean(np.real(p)), 0, atol=1e7)
+    npt.assert_allclose(np.mean(np.real(p)), 0, atol=1e-2)
 
 
 def test_wave_planar_p_field_frame():
