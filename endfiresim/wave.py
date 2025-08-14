@@ -57,12 +57,9 @@ class CWaveModelSpheric(CWaveModel):
         else:
             full_phase = self.k * r - self.omega * t[..., np.newaxis, np.newaxis]
         
-        # Calculate magnitude (avoid division by zero)
         with np.errstate(divide='ignore', invalid='ignore'):
             magnitude = np.where(r > 1/self.k, self.amp / r, np.inf)
             wave = magnitude * np.exp(-1j * full_phase)
-        
-        # Clean up results
         result = np.where(np.isinf(magnitude), np.nan, wave)
         return np.real_if_close(np.squeeze(result))
 
