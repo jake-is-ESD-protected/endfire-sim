@@ -1,21 +1,20 @@
-from abc import ABC, abstractmethod
 import numpy as np
 from .wave import CWaveModel
 
-class CSensor(ABC):
-    def __init__(self, xyz: tuple, azim: float, elev: float):
+class CSensor:
+    def __init__(self, xyz: tuple):
         self.xyz = xyz
-        self.azim = azim
-        self.elev = elev
     
-    @abstractmethod
     def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
-        pass
+        gain = 1.
+        return wave_model.p(t, self.xyz), gain
 
 
 class CCardioidIdeal(CSensor):
     def __init__(self, xyz: tuple, azim: float, elev: float):
-        super().__init__(xyz, azim, elev)
+        super().__init__(xyz=xyz)
+        self.azim = azim
+        self.elev = elev
     
     def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
         p = wave_model.p(t, self.xyz)
