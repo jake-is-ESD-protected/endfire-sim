@@ -20,21 +20,19 @@ class CCardioidIdeal(CSensor):
         p = wave_model.p(t, self.xyz)
     
         if wave_model.type == "planar":
-            # For planar waves, use the predefined wave direction
             wave_vec = np.array([
                 np.cos(wave_model.azim) * np.cos(wave_model.elev),
                 np.sin(wave_model.azim) * np.cos(wave_model.elev),
                 np.sin(wave_model.elev)
             ])
         elif wave_model.type == "spheric":
-            # For spherical waves, calculate direction from source to receiver
             delta_vec = np.asarray(self.xyz) - np.asarray(wave_model.source_xyz)
-            wave_vec = delta_vec / np.linalg.norm(delta_vec)  # Unit vector pointing FROM source TO receiver
+            wave_vec = delta_vec / np.linalg.norm(delta_vec)
         else:
             raise ValueError(f"Unknown wave model type: {wave_model.type}")
 
-        cardioid_vec = self.__vec()  # Unit vector pointing in sensor's direction
-        gain = (1 + np.dot(-cardioid_vec, wave_vec)) / 2  # No negation needed now
+        cardioid_vec = self.__vec()
+        gain = (1 + np.dot(-cardioid_vec, wave_vec)) / 2
         return p * gain, gain
     
     def __vec(self):
