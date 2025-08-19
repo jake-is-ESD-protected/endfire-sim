@@ -19,6 +19,10 @@ TEST_DUR = 2 # s
 TEST_TIME_STAMP = 0
 TEST_TIME_FRAME = np.arange(0, TEST_DUR, 1/TEST_FS)
 
+TEST_MONOPOLE_POS1 = (0, 0, 0)
+TEST_MONOPOLE_POS2 = (0.02, 0.02, 0)
+TEST_MONOPOLE_DIST = 0.02
+
 
 def test_sensor_init():
     s = CSensor(TEST_SENSOR_POS)
@@ -64,8 +68,8 @@ def test_cardioid_ideal_receive_front():
     ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_AZIM_PLANAR + np.pi, TEST_CARDIOID_ELEV0)
     p, gain = ci.receive(pw, TEST_TIME_FRAME)
     assert p.shape == TEST_TIME_FRAME.shape
-    npt.assert_allclose(np.max(np.real(p)), pw.amp)
-    npt.assert_allclose(gain, 1.)
+    npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
+    npt.assert_allclose(gain, 2.)
 
 
 def test_cardioid_ideal_receive_side():
@@ -73,5 +77,99 @@ def test_cardioid_ideal_receive_side():
     ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_AZIM_PLANAR + np.pi/2, TEST_CARDIOID_ELEV0)
     p, gain = ci.receive(pw, TEST_TIME_FRAME)
     assert p.shape == TEST_TIME_FRAME.shape
-    npt.assert_allclose(np.max(np.real(p)), pw.amp/2)
-    npt.assert_allclose(gain, 0.5)
+    npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
+    npt.assert_allclose(gain, np.sqrt(2.))
+
+
+def test_cardioid_ideal_receive_top():
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_AZIM_PLANAR, TEST_CARDIOID_ELEV0 + np.pi/2)
+    p, gain = ci.receive(pw, TEST_TIME_FRAME)
+    assert p.shape == TEST_TIME_FRAME.shape
+    npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
+    npt.assert_allclose(gain, np.sqrt(2.))
+
+
+def test_cardioid_endfire_init_two_pos():
+    cef = CCardioidEndfire(positions=(TEST_MONOPOLE_POS1, TEST_MONOPOLE_POS2))
+    npt.assert_allclose(cef.xyz1, np.asarray(TEST_MONOPOLE_POS1))
+    npt.assert_allclose(cef.xyz2, np.asarray(TEST_MONOPOLE_POS2))
+    assert cef.azim == np.pi/4
+    assert cef.elev == 0.
+    assert cef.distance == np.sqrt(TEST_MONOPOLE_POS2[0]**2 + TEST_MONOPOLE_POS2[1]**2)
+    assert cef.freq == TEST_C / (4* cef.distance)
+    assert cef.synthetic_delay == cef.distance / TEST_C
+
+
+def test_cardioid_endfire_init_single_pos_dist():
+    cef = CCardioidEndfire(xyz=TEST_SENSOR_POS,
+                           distance=TEST_MONOPOLE_DIST,
+                           azim=TEST_CARDIOID_AZIM0,
+                           elev=TEST_CARDIOID_ELEV0)
+    npt.assert_allclose(cef.xyz1, np.asarray(TEST_SENSOR_POS))
+    pos2 = (TEST_SENSOR_POS[0] + TEST_MONOPOLE_DIST, TEST_SENSOR_POS[1], TEST_SENSOR_POS[2])
+    npt.assert_allclose(cef.xyz2, np.asarray(pos2))
+    assert cef.azim == TEST_CARDIOID_AZIM0
+    assert cef.elev == TEST_CARDIOID_ELEV0
+    assert cef.distance == TEST_MONOPOLE_DIST
+    assert cef.freq == TEST_C / (4* cef.distance)
+    assert cef.synthetic_delay == cef.distance / TEST_C
+
+
+def test_cardioid_endfire_init_single_pos_dist():
+    cef = CCardioidEndfire(xyz=TEST_SENSOR_POS,
+                           target_freq=TEST_FREQ,
+                           azim=TEST_CARDIOID_AZIM0,
+                           elev=TEST_CARDIOID_ELEV0)
+    npt.assert_allclose(cef.xyz1, np.asarray(TEST_SENSOR_POS))
+    assert cef.distance == TEST_C / (4 * TEST_FREQ)
+    pos2 = (TEST_SENSOR_POS[0] + cef.distance, TEST_SENSOR_POS[1], TEST_SENSOR_POS[2])
+    npt.assert_allclose(cef.xyz2, np.asarray(pos2))
+    assert cef.azim == TEST_CARDIOID_AZIM0
+    assert cef.elev == TEST_CARDIOID_ELEV0
+    assert cef.freq == TEST_FREQ
+    assert cef.synthetic_delay == cef.distance / TEST_C
+
+
+def test_cardioid_endfire_receive_back():
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    cef = CCardioidEndfire(xyz=TEST_SENSOR_POS,
+                           target_freq=TEST_FREQ,
+                           azim=TEST_AZIM_PLANAR,
+                           elev=TEST_CARDIOID_ELEV0)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    npt.assert_allclose(gain, 0.0, atol=1e-1)
+    npt.assert_allclose(np.max(np.real(p)), pw.amp * gain, atol=1e-5)
+
+
+def test_cardioid_endfire_receive_front():
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    cef = CCardioidEndfire(xyz=TEST_SENSOR_POS,
+                           target_freq=TEST_FREQ,
+                           azim=TEST_AZIM_PLANAR + np.pi,
+                           elev=TEST_CARDIOID_ELEV0)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    npt.assert_allclose(gain, 2., atol=1e-1)
+    npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
+
+
+def test_cardioid_endfire_receive_side():
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    cef = CCardioidEndfire(xyz=TEST_SENSOR_POS,
+                           target_freq=TEST_FREQ,
+                           azim=TEST_AZIM_PLANAR + np.pi/2,
+                           elev=TEST_CARDIOID_ELEV0)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    npt.assert_allclose(gain, np.sqrt(2.), atol=1e-1)
+    npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
+
+
+def test_cardioid_endfire_receive_top():
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    cef = CCardioidEndfire(xyz=TEST_SENSOR_POS,
+                           target_freq=TEST_FREQ,
+                           azim=TEST_AZIM_PLANAR,
+                           elev=TEST_CARDIOID_ELEV0 + np.pi/2)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    npt.assert_allclose(gain, np.sqrt(2.), atol=1e-1)
+    npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
