@@ -10,6 +10,10 @@ class CWaveModel(ABC):
     def p(self, t: float | np.ndarray, pos_xyz: tuple):
         pass
 
+    @abstractmethod
+    def vec(self, ref_point: tuple | np.ndarray):
+        pass
+
 
 class CWaveModelPlanar(CWaveModel):
     def __init__(self, f: float, amp: int=1, c=343, azim: float=0, elev: float=0) -> None:
@@ -24,6 +28,14 @@ class CWaveModelPlanar(CWaveModel):
         self.kx = self.k * np.cos(self.azim) * np.cos(self.elev)
         self.ky = self.k * np.sin(self.azim) * np.cos(self.elev)
         self.kz = self.k * np.sin(self.elev)
+    
+    def vec(self, ref_point: tuple | np.ndarray = None):
+        vec = np.array([
+                np.cos(self.azim) * np.cos(self.elev),
+                np.sin(self.azim) * np.cos(self.elev),
+                np.sin(self.elev)
+            ])
+        return vec
 
     def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
         t = np.asarray(t)
@@ -63,3 +75,7 @@ class CWaveModelSpheric(CWaveModel):
         result = np.where(np.isinf(magnitude), np.nan, wave)
         return np.real_if_close(np.squeeze(result))
 
+    def vec(self, ref_point: tuple | np.ndarray):
+        delta_vec = np.asarray(ref_point) - np.asarray(self.source_xyz)
+        vec = delta_vec / np.linalg.norm(delta_vec)
+        return vec

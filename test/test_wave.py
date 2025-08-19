@@ -40,6 +40,16 @@ def test_wave_spheric_init():
     assert sw.type == "spheric"
 
 
+def test_wave_planar_vec():
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    npt.assert_allclose(pw.vec(), np.array([1, 0, 0]))
+
+
+def test_wave_planar_vec():
+    pw = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC)
+    npt.assert_allclose(pw.vec(ref_point=(-1, 0, 0)), np.array([-1, 0, 0]))
+
+
 def test_wave_planar_p_point_step():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
     p = pw.p(TEST_TIME_STAMP, TEST_OBSERVER_POS)
