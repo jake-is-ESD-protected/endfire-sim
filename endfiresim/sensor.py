@@ -18,19 +18,7 @@ class CCardioidIdeal(CSensor):
     
     def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
         p = wave_model.p(t, self.xyz)
-    
-        if wave_model.type == "planar":
-            wave_vec = np.array([
-                np.cos(wave_model.azim) * np.cos(wave_model.elev),
-                np.sin(wave_model.azim) * np.cos(wave_model.elev),
-                np.sin(wave_model.elev)
-            ])
-        elif wave_model.type == "spheric":
-            delta_vec = np.asarray(self.xyz) - np.asarray(wave_model.source_xyz)
-            wave_vec = delta_vec / np.linalg.norm(delta_vec)
-        else:
-            raise ValueError(f"Unknown wave model type: {wave_model.type}")
-
+        wave_vec = wave_model.vec(self.xyz)
         cardioid_vec = self.__vec()
         gain = np.sqrt(((1 + np.dot(-cardioid_vec, wave_vec)) * 2))
         return p * gain, gain
@@ -143,22 +131,11 @@ class CCardioidEndfire(CCardioidIdeal):
         self.synthetic_delay = 1 / (4 * self.freq)
 
     def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
-        if wave_model.type == "planar":
-            wave_vec = np.array([
-                np.cos(wave_model.azim) * np.cos(wave_model.elev),
-                np.sin(wave_model.azim) * np.cos(wave_model.elev),
-                np.sin(wave_model.elev)
-            ])
-        elif wave_model.type == "spheric":
-            delta_vec = np.asarray(self.xyz) - np.asarray(wave_model.source_xyz)
-            wave_vec = delta_vec / np.linalg.norm(delta_vec)
-
-        array_axis = self._CCardioidIdeal__vec()
-        cos_theta = np.dot(wave_vec, -array_axis)
+        wave_vec = wave_model.vec(self.xyz)
+        cardioid_vec = self._CCardioidIdeal__vec()
+        cos_theta = np.dot(wave_vec, -cardioid_vec)
         natural_delay = (self.distance * cos_theta) / self.c
-
         total_delay = self.synthetic_delay - natural_delay
-
         p1, _ = CSensor.receive(self, wave_model, t)
         p2, _ = CSensor.receive(self, wave_model, t - total_delay)
         p = p1 + p2
