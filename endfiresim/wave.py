@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+from .algo import sph_to_cart_3d
 
 
 class CWaveModel(ABC):
@@ -16,12 +17,12 @@ class CWaveModel(ABC):
 
 
 class CWaveModelPlanar(CWaveModel):
-    def __init__(self, f: float, amp: int=1, c=343, azim: float=0, elev: float=0) -> None:
+    def __init__(self, f: float, amp: int=1, c=343, elev: float=0, azim: float=0) -> None:
         self.f = f
         self.amp = amp
         self.c = c
-        self.azim = azim
         self.elev = elev
+        self.azim = azim
         self.type = "planar"
         self.omega = 2*np.pi*f
         self.k = self.omega / self.c
@@ -30,12 +31,7 @@ class CWaveModelPlanar(CWaveModel):
         self.kz = self.k * np.sin(self.elev)
     
     def vec(self, ref_point: tuple | np.ndarray = None):
-        vec = np.array([
-                np.cos(self.azim) * np.cos(self.elev),
-                np.sin(self.azim) * np.cos(self.elev),
-                np.sin(self.elev)
-            ])
-        return vec
+        return sph_to_cart_3d(1, self.elev, self.azim)
 
     def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
         t = np.asarray(t)
