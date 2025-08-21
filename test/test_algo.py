@@ -48,14 +48,14 @@ def test_sph_to_cart_3d():
         npt.assert_allclose(z, cart[2], atol=1e-7)
 
 
-def test_sph_to_cart_2d():
+def test_cart_to_sph_2d():
     for cart, sph in zip(POINTS_CART_2D, POINT_SPH_2D):
         r, azim = cart_to_sph_2d(cart[0], cart[1])
         npt.assert_allclose(r, sph[0], atol=1e-7)
         npt.assert_allclose(azim, sph[1], atol=1e-7)
 
 
-def test_sph_to_cart_3d():
+def test_cart_to_sph_3d():
     for cart, sph in zip(POINTS_CART_3D, POINT_SPH_3D):
         r, elev, azim = cart_to_sph_3d(cart[0], cart[1], cart[2])
         npt.assert_allclose(r, sph[0], atol=1e-7)

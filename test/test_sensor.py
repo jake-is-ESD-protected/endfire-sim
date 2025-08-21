@@ -49,7 +49,7 @@ def test_cardioid_ideal_vec():
 
     for i, angle in enumerate(TEST_CARDIOID_AZIM_RANGE):
         ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_CARDIOID_ELEV0, angle)
-        vec = ci._CCardioidIdeal__direction_vec()
+        vec = ci.direction_vec()
         assert np.shape(vec) == (3,)
         npt.assert_allclose(np.array(vec), np.asarray(expected_vecs[i]), atol=1e-7)
 

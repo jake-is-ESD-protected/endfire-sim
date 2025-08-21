@@ -6,7 +6,7 @@ TEST_AMP = 0.5
 TEST_C = 343
 
 TEST_AZIM_PLANAR = 0
-TEST_ELEV_PLANAR = 0
+TEST_ELEV_PLANAR = np.pi/2
 
 TEST_SRC_POS_SPHERIC = (0, 0, 0)
 
@@ -27,7 +27,7 @@ def test_wave_init():
 
 
 def test_wave_planar_init():
-    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     npt.assert_allclose(pw.omega, TEST_FREQ*np.pi*2)
     npt.assert_allclose(pw.k, TEST_FREQ*np.pi*2/TEST_C)
     assert pw.type == "planar"
@@ -41,24 +41,24 @@ def test_wave_spheric_init():
 
 
 def test_wave_planar_vec():
-    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
-    npt.assert_allclose(pw.vec(), np.array([1, 0, 0]))
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
+    npt.assert_allclose(pw.vec(), np.array([1, 0, 0]), atol=1e-7)
 
 
-def test_wave_planar_vec():
+def test_wave_spheric_vec():
     pw = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC)
     npt.assert_allclose(pw.vec(ref_point=(-1, 0, 0)), np.array([-1, 0, 0]))
 
 
 def test_wave_planar_p_point_step():
-    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     p = pw.p(TEST_TIME_STAMP, TEST_OBSERVER_POS)
     assert p.dtype == np.complex128
     assert p.shape == ()
 
 
 def test_wave_planar_p_point_frame():
-    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     p = pw.p(TEST_TIME_FRAME, TEST_OBSERVER_POS)
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_TIME_FRAME)
@@ -67,7 +67,7 @@ def test_wave_planar_p_point_frame():
 
 
 def test_wave_planar_p_field_step():
-    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     p = pw.p(TEST_TIME_STAMP, TEST_FIELD_POS)
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_FIELD_POS)[1:]
@@ -76,7 +76,7 @@ def test_wave_planar_p_field_step():
 
 
 def test_wave_planar_p_field_frame():
-    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_AZIM_PLANAR, TEST_ELEV_PLANAR)
+    pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     try:
         p = pw.p(TEST_TIME_FRAME, TEST_FIELD_POS)
     except ValueError:

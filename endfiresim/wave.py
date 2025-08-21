@@ -17,7 +17,7 @@ class CWaveModel(ABC):
 
 
 class CWaveModelPlanar(CWaveModel):
-    def __init__(self, f: float, amp: int=1, c=343, elev: float=0, azim: float=0) -> None:
+    def __init__(self, f: float, amp: int=1, c=343, elev: float=np.pi/2, azim: float=0) -> None:
         self.f = f
         self.amp = amp
         self.c = c
@@ -26,9 +26,10 @@ class CWaveModelPlanar(CWaveModel):
         self.type = "planar"
         self.omega = 2*np.pi*f
         self.k = self.omega / self.c
-        self.kx = self.k * np.cos(self.azim) * np.cos(self.elev)
-        self.ky = self.k * np.sin(self.azim) * np.cos(self.elev)
-        self.kz = self.k * np.sin(self.elev)
+        x, y, z = sph_to_cart_3d(np.ones_like(self.azim), self.elev, self.azim)
+        self.kx = self.k * x
+        self.ky = self.k * y
+        self.kz = self.k * z
     
     def vec(self, ref_point: tuple | np.ndarray = None):
         return sph_to_cart_3d(1, self.elev, self.azim)
