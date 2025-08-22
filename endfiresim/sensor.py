@@ -30,7 +30,7 @@ class CSensor:
         x, y, z = sph_to_cart_3d(np.ones_like(elev_grid), elev_grid, azim_grid)
         return np.ones_like(x), (x, y, z)
     
-    def to_plot(self, ax, size=0.5):
+    def to_plot(self, ax, size=0.5, log=False):
         vec = self.direction_vec()
         is_3d = hasattr(ax, 'zaxis')
         
@@ -57,10 +57,11 @@ class CSensor:
         else:
             # ===== 2D VERSION =====
             gain, xy = self.gain_2d()
-            r = np.clip(gain, 1e-7, None)
-            r = 20*np.log10(r / np.max(r))
-            norm = np.max(np.abs(r))
-            r = size * (1 + r / (norm if norm else 1.))
+            gain = np.clip(gain, 1e-7, None)
+            if log:
+                r = size * (1 + 20*np.log10(gain/np.max(gain)) / 50)
+            else:
+                r = size * gain / np.max(gain)
             
             X = self.xyz[0] + r * xy[0]
             Y = self.xyz[1] + r * xy[1]
@@ -107,57 +108,61 @@ class CCardioidIdeal(CSensor):
         vec = self.direction_vec()
         dot_product = vec[0]*x + vec[1]*y + vec[2]*z
         return 1 + dot_product, (x, y, z)
-    
 
-class CCardioidEndfire(CCardioidIdeal):
-    def __init__(self, xyz=None, distance=None, target_freq=None, positions=None, 
+
+class CEndfire(CSensor):
+    def __init__(self, xyz: tuple, distance=None, target_freq=None, n_sensors=2,
                  elev=None, azim=None, c=343.0):
+        super().__init__(xyz)
+        self.n_sensors = n_sensors
+        self.elev = elev
+        self.azim = azim
         self.c = c
+        direction_vec = np.array(self.direction_vec())
         
-        if positions is not None:
-            self.xyz1, self.xyz2 = np.asarray(positions[0]), np.asarray(positions[1])
-            self.distance = np.linalg.norm(self.xyz2 - self.xyz1)
-            delta = self.xyz2 - self.xyz1
-            self.elev = np.arcsin(delta[2] / self.distance) if elev is None else elev
-            self.azim = np.arctan2(delta[1], delta[0]) if azim is None else azim
-            self.freq = c / (4 * self.distance)
-            super().__init__(xyz=self.xyz1, azim=self.azim, elev=self.elev)
+        if distance is not None and target_freq is not None:
+            raise ValueError("Provide either distance or target_freq, not both.")
+        elif target_freq is not None:
+            self.freq = target_freq
+            self.distance = c / (4 * target_freq)
+        elif distance is not None:
+            self.distance = distance
+            self.freq = c / (4 * distance)
         else:
-            if xyz is None or azim is None or elev is None:
-                raise ValueError("For single-position mode, specify xyz, azim, and elev.")
-            
-            self.xyz1 = np.asarray(xyz)
-            self.azim, self.elev = azim, elev
-            super().__init__(xyz=self.xyz1, azim=self.azim, elev=self.elev)
-            
-            direction_vec = np.array(self.direction_vec())
-            
-            if distance is not None and target_freq is not None:
-                raise ValueError("Provide either distance or target_freq, not both.")
-            elif target_freq is not None:
-                self.freq = target_freq
-                self.distance = c / (4 * target_freq)
-                self.xyz2 = self.xyz1 + direction_vec * self.distance
-            elif distance is not None:
-                self.distance = distance
-                self.freq = c / (4 * distance)
-                self.xyz2 = self.xyz1 + direction_vec * distance
-            else:
-                raise ValueError("Specify either distance or target_freq.")
-
-        self.synthetic_delay = 1 / (4 * self.freq)
-
+            raise ValueError("Specify either distance or target_freq.")
+        
+        sensor_positions = []
+        for i in range(n_sensors):
+            pos = tuple(np.array(self.xyz) + direction_vec * self.distance * i)
+            sensor_positions.append(pos)
+        self.poss = tuple(sensor_positions)
+        self.endfire_delay = self.distance / self.c
+    
+    def direction_vec(self):
+        return sph_to_cart_3d(1, self.elev, self.azim)
+    
     def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
-        wave_vec = wave_model.vec(self.xyz)
-        cardioid_vec = np.array(self.direction_vec())
-        cos_theta = np.dot(wave_vec, -cardioid_vec)
-        natural_delay = (self.distance * cos_theta) / self.c
-        total_delay = self.synthetic_delay - natural_delay
-        p1, _ = CSensor.receive(self, wave_model, t)
-        p2, _ = CSensor.receive(self, wave_model, t - total_delay)
-        p = p1 + p2
-        gain = np.sqrt(np.max(np.abs(p**2)) / np.max(np.abs(p1**2)))
-        return p, gain
+        ps = []
+        for i, pos in enumerate(self.poss):
+            monop = CSensor(pos)
+            p, _ = monop.receive(wave_model, t - self.endfire_delay * i)
+            ps.append(p)
+        ps = np.vstack(ps)
+        self.ps = ps
+        p_tot = np.sum(ps, axis=0)
+        gain = np.sqrt(np.mean(np.abs(p_tot)**2) / np.mean(np.abs(ps[0])**2))
+        return p_tot, gain
+    
+    def gain_2d(self):
+        azim_grid = np.linspace(0, 2*np.pi, 100)
+        unity_gain = np.ones_like(azim_grid)
+        x, y = sph_to_cart_2d(unity_gain, azim_grid)
+        gains = np.zeros_like(azim_grid)
+        for i, azim in enumerate(azim_grid):
+            pw = CWaveModelPlanar(self.freq, azim=azim+np.pi)
+            _, gain = self.receive(pw, 0)
+            gains[i] = gain
+        return gains, (x, y)
     
     def gain_3d(self):
         elev_grid, azim_grid = self.get_sph_mesh(30)
@@ -171,3 +176,14 @@ class CCardioidEndfire(CCardioidIdeal):
                 _, gain = self.receive(pw, 0)
                 gains[i,j] = gain
         return gains, (x, y, z)
+    
+    def to_plot(self, ax, size=0.5, log=False):
+        super().to_plot(ax, size, log)
+        is_3d = hasattr(ax, 'zaxis')
+
+        if is_3d:
+            for pos in self.poss[1:]:
+                ax.scatter(*tuple(pos), color='blue', s=50)
+        else:
+            for pos in self.poss[1:]:
+                ax.plot(pos[0], pos[1], 'bo', markersize=5)
