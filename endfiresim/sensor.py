@@ -1,6 +1,7 @@
 import numpy as np
 from .wave import CWaveModel, CWaveModelPlanar
 from .algo import sph_to_cart_3d, sph_to_cart_2d
+from math import comb
 
 class CSensor:
     def __init__(self, xyz: tuple):
@@ -141,7 +142,7 @@ class CEndfire(CSensor):
     def direction_vec(self):
         return sph_to_cart_3d(1, self.elev, self.azim)
     
-    def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
+    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, order: int = None):
         ps = []
         for i, pos in enumerate(self.poss):
             monop = CSensor(pos)
@@ -149,7 +150,24 @@ class CEndfire(CSensor):
             ps.append(p)
         ps = np.vstack(ps)
         self.ps = ps
-        p_tot = np.sum(ps, axis=0)
+
+        if order:
+            # differential BF
+            n_d = self.endfire_delay * 48000
+            num_mics = len(ps)
+
+            if order >= num_mics:
+                raise ValueError(f"Order {order} requires {order+1} mics. Have {num_mics}.")
+
+            p_tot = np.zeros_like(ps[0])
+            for m in range(order + 1):
+                coefficient = (-1)**m * comb(order, m) # Calculate binomial coefficient
+                delayed_signal = np.roll(ps[m], -m * n_d)
+                p_tot += coefficient * delayed_signal
+        else:
+            # DAS BF
+            p_tot = np.sum(ps, axis=0)
+
         gain = np.sqrt(np.mean(np.abs(p_tot)**2) / np.mean(np.abs(ps[0])**2))
         return p_tot, gain
     
