@@ -31,7 +31,7 @@ class CSensor:
         x, y, z = sph_to_cart_3d(np.ones_like(elev_grid), elev_grid, azim_grid)
         return np.ones_like(x), (x, y, z)
     
-    def to_plot(self, ax, size=0.5, log=False, at_freq=None):
+    def to_plot(self, ax, size=0.5, color='k', log=False, at_freq=None):
         vec = self.direction_vec()
         is_3d = hasattr(ax, 'zaxis')
         
@@ -47,12 +47,12 @@ class CSensor:
             Y = self.xyz[1] + r * xyz[1]
             Z = self.xyz[2] + r * xyz[2]
             
-            ax.plot_surface(X, Y, Z, color='red', alpha=0.2, edgecolor='k', linewidth=0.5, label="Cardioid")
+            ax.plot_surface(X, Y, Z, color=color, alpha=0.2, edgecolor='k', linewidth=0.5, label="Cardioid")
             
             arrow_len = size * 2.5
             ax.quiver(self.xyz[0], self.xyz[1], self.xyz[2],
                     arrow_len*vec[0], arrow_len*vec[1], arrow_len*vec[2],
-                    color='red', arrow_length_ratio=0.1, linewidth=2)
+                    color=color, arrow_length_ratio=0.1, linewidth=2)
             ax.scatter(*self.xyz, color='blue', s=50)
             
         else:
@@ -67,14 +67,14 @@ class CSensor:
             X = self.xyz[0] + r * xy[0]
             Y = self.xyz[1] + r * xy[1]
             
-            ax.plot(X, Y, 'k-', linewidth=2)
+            ax.plot(X, Y, color, linestyle='-', linewidth=2)
             
             arrow_len = size * 1.5
             if np.sqrt(vec[0]**2 + vec[1]**2) > 0.5:
                 ax.arrow(self.xyz[0], self.xyz[1],
                         arrow_len*vec[0], arrow_len*vec[1],
                         width=0.05, head_width=0.15, head_length=0.2,
-                        fc='red', ec='k')
+                        fc=color, ec='k')
             ax.plot(self.xyz[0], self.xyz[1], 'bo', markersize=5)
             ax.set_aspect('equal')
         
@@ -103,7 +103,7 @@ class CCardioidIdeal(CSensor):
         x, y = sph_to_cart_2d(1, azim)
         return gain, (x, y)
     
-    def gain_3d(self):
+    def gain_3d(self, at_freq=None):
         elev_grid, azim_grid = self.get_sph_mesh(30)
         x, y, z = sph_to_cart_3d(np.ones_like(elev_grid), elev_grid, azim_grid)
         vec = self.direction_vec()
@@ -183,7 +183,7 @@ class CEndfire(CSensor):
             gains[i] = gain
         return gains, (x, y)
     
-    def gain_3d(self):
+    def gain_3d(self, at_freq=None):
         elev_grid, azim_grid = self.get_sph_mesh(30)
         x, y, z = sph_to_cart_3d(np.ones_like(elev_grid), elev_grid, azim_grid)
         gains = np.zeros_like(elev_grid)
@@ -196,8 +196,8 @@ class CEndfire(CSensor):
                 gains[i,j] = gain
         return gains, (x, y, z)
     
-    def to_plot(self, ax, size=0.5, log=False, at_freq=None):
-        super().to_plot(ax, size, log, at_freq)
+    def to_plot(self, ax, size=0.5, color='k', log=False, at_freq=None):
+        super().to_plot(ax, size, color, log, at_freq)
         is_3d = hasattr(ax, 'zaxis')
 
         if is_3d:
