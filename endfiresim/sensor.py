@@ -20,24 +20,24 @@ class CSensor:
         elev_grid, azim_grid = np.meshgrid(elev, azim)
         return elev_grid, azim_grid
     
-    def gain_2d(self):
+    def gain_2d(self, at_freq=None):
         azim = np.linspace(0, 2*np.pi, 100)
         unity_gain = np.ones_like(azim)
         x, y = sph_to_cart_2d(unity_gain, azim)
         return unity_gain, (x, y)
     
-    def gain_3d(self):
+    def gain_3d(self, at_freq=None):
         elev_grid, azim_grid = self.get_sph_mesh(30)
         x, y, z = sph_to_cart_3d(np.ones_like(elev_grid), elev_grid, azim_grid)
         return np.ones_like(x), (x, y, z)
     
-    def to_plot(self, ax, size=0.5, log=False):
+    def to_plot(self, ax, size=0.5, log=False, at_freq=None):
         vec = self.direction_vec()
         is_3d = hasattr(ax, 'zaxis')
         
         if is_3d:
             # ===== 3D VERSION =====
-            gain, xyz = self.gain_3d()
+            gain, xyz = self.gain_3d(at_freq=at_freq)
             r = np.clip(gain, 1e-7, None)
             r = 20*np.log10(r / np.max(r))
             norm = np.max(np.abs(r))
@@ -57,7 +57,7 @@ class CSensor:
             
         else:
             # ===== 2D VERSION =====
-            gain, xy = self.gain_2d()
+            gain, xy = self.gain_2d(at_freq=at_freq)
             gain = np.clip(gain, 1e-7, None)
             if log:
                 r = size * (1 + 20*np.log10(gain/np.max(gain)) / 50)
@@ -95,7 +95,7 @@ class CCardioidIdeal(CSensor):
     def direction_vec(self):
         return sph_to_cart_3d(1, self.elev, self.azim)
     
-    def gain_2d(self):
+    def gain_2d(self, at_freq=None):
         azim = np.linspace(0, 2*np.pi, 100)
         azim_delta = azim - self.azim
         azim_delta = (azim_delta + np.pi) % (2 * np.pi) - np.pi # avoids precision issues
@@ -137,7 +137,7 @@ class CEndfire(CSensor):
             pos = tuple(np.array(self.xyz) + direction_vec * self.distance * i)
             sensor_positions.append(pos)
         self.poss = tuple(sensor_positions)
-        self.endfire_delay = self.distance / self.c
+        self.path_delay = self.distance / self.c
     
     def direction_vec(self):
         return sph_to_cart_3d(1, self.elev, self.azim)
@@ -146,14 +146,14 @@ class CEndfire(CSensor):
         ps = []
         for i, pos in enumerate(self.poss):
             monop = CSensor(pos)
-            p, _ = monop.receive(wave_model, t - self.endfire_delay * i)
+            p, _ = monop.receive(wave_model, t - self.path_delay * i)
             ps.append(p)
         ps = np.vstack(ps)
         self.ps = ps
 
         if order:
             # differential BF
-            n_d = self.endfire_delay * 48000
+            n_d = self.path_delay * 48000
             num_mics = len(ps)
 
             if order >= num_mics:
@@ -171,13 +171,14 @@ class CEndfire(CSensor):
         gain = np.sqrt(np.mean(np.abs(p_tot)**2) / np.mean(np.abs(ps[0])**2))
         return p_tot, gain
     
-    def gain_2d(self):
+    def gain_2d(self, at_freq=None):
         azim_grid = np.linspace(0, 2*np.pi, 100)
         unity_gain = np.ones_like(azim_grid)
         x, y = sph_to_cart_2d(unity_gain, azim_grid)
         gains = np.zeros_like(azim_grid)
+        f = at_freq if at_freq else self.freq
         for i, azim in enumerate(azim_grid):
-            pw = CWaveModelPlanar(self.freq, azim=azim+np.pi)
+            pw = CWaveModelPlanar(f, azim=azim+np.pi)
             _, gain = self.receive(pw, 0)
             gains[i] = gain
         return gains, (x, y)
@@ -195,8 +196,8 @@ class CEndfire(CSensor):
                 gains[i,j] = gain
         return gains, (x, y, z)
     
-    def to_plot(self, ax, size=0.5, log=False):
-        super().to_plot(ax, size, log)
+    def to_plot(self, ax, size=0.5, log=False, at_freq=None):
+        super().to_plot(ax, size, log, at_freq)
         is_3d = hasattr(ax, 'zaxis')
 
         if is_3d:
@@ -205,3 +206,39 @@ class CEndfire(CSensor):
         else:
             for pos in self.poss[1:]:
                 ax.plot(pos[0], pos[1], 'bo', markersize=5)
+
+
+class CCardioidSynthetic(CEndfire):
+    def __init__(self, xyz: tuple, distance=None, target_freq=None, n_sensors=2,
+                 elev=None, azim=None, c=343.0):
+        super().__init__(xyz=xyz, distance=distance, target_freq=target_freq, n_sensors=n_sensors,
+                         elev=elev, azim=azim, c=c)
+    
+    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, at_freq=None):
+        p = wave_model.p(t, self.xyz)
+        wave_vec = wave_model.vec(self.xyz)
+        cardioid_vec = np.array(self.direction_vec())
+        f = at_freq if at_freq else self.freq
+        k = f * 2*np.pi / self.c
+        gain = 2*np.abs(np.cos(k*self.distance/2*np.dot(cardioid_vec, wave_vec) + f*2*np.pi * self.path_delay/2))
+        return p * gain, gain
+    
+    def gain_2d(self, at_freq=None):
+        azim = np.linspace(0, 2*np.pi, 100)
+        azim_delta = azim - self.azim
+        azim_delta = (azim_delta + np.pi) % (2 * np.pi) - np.pi # avoids precision issues
+        f = at_freq if at_freq else self.freq
+        k = f * 2*np.pi / self.c
+        gain = 2*np.abs(np.cos(k*self.distance/2*np.cos(azim_delta + np.pi) + f*2*np.pi * self.path_delay/2))
+        x, y = sph_to_cart_2d(1, azim)
+        return gain, (x, y)
+    
+    def gain_3d(self, at_freq=None):
+        elev_grid, azim_grid = self.get_sph_mesh(30)
+        x, y, z = sph_to_cart_3d(np.ones_like(elev_grid), elev_grid, azim_grid)
+        vec = self.direction_vec()
+        dot_product = vec[0]*x + vec[1]*y + vec[2]*z
+        f = at_freq if at_freq else self.freq
+        k = f * 2*np.pi / self.c
+        gain = 2*np.abs(np.cos(k*self.distance/2*-dot_product + f*2*np.pi * self.path_delay/2))
+        return gain, (x, y, z)
