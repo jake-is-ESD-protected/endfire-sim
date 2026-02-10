@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "endfiresim"
-version = "0.0.1"
+version = "0.0.2"
 description = "Simulation of acoustic endfire arrays."
 authors = [
     { name = "jake-is_ESD-protected", email = "j.tschavoll@tu-berlin.de" }
