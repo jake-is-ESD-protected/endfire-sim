@@ -219,17 +219,24 @@ class CCardioidSynthetic(CEndfire):
         wave_vec = wave_model.vec(self.xyz)
         cardioid_vec = np.array(self.direction_vec())
         f = at_freq if at_freq else self.freq
-        k = f * 2*np.pi / self.c
-        gain = 2*np.abs(np.cos(k*self.distance/2*np.dot(cardioid_vec, wave_vec) + f*2*np.pi * self.path_delay/2))
+        gain = self.gain_function(f, dot=np.dot(cardioid_vec, wave_vec))
         return p * gain, gain
+    
+    def gain_function(self, f, th=None, dot=None):
+        if not th and not dot:
+            raise ValueError("Provide either an angle or dot product!")
+        omega = 2*np.pi*f
+        k = omega / self.c
+        if not dot:
+            dot = np.cos(th + np.pi)
+        return 2*np.abs(np.cos(k*self.distance/2*dot + omega * self.path_delay/2))
     
     def gain_2d(self, at_freq=None):
         azim = np.linspace(0, 2*np.pi, 100)
         azim_delta = azim - self.azim
         azim_delta = (azim_delta + np.pi) % (2 * np.pi) - np.pi # avoids precision issues
         f = at_freq if at_freq else self.freq
-        k = f * 2*np.pi / self.c
-        gain = 2*np.abs(np.cos(k*self.distance/2*np.cos(azim_delta + np.pi) + f*2*np.pi * self.path_delay/2))
+        gain = self.gain_function(f, th=azim_delta + np.pi)
         x, y = sph_to_cart_2d(1, azim)
         return gain, (x, y)
     
@@ -239,6 +246,5 @@ class CCardioidSynthetic(CEndfire):
         vec = self.direction_vec()
         dot_product = vec[0]*x + vec[1]*y + vec[2]*z
         f = at_freq if at_freq else self.freq
-        k = f * 2*np.pi / self.c
-        gain = 2*np.abs(np.cos(k*self.distance/2*-dot_product + f*2*np.pi * self.path_delay/2))
+        gain = self.gain_function(f, dot=-dot_product)
         return gain, (x, y, z)
