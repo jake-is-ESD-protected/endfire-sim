@@ -223,7 +223,7 @@ class CCardioidSynthetic(CEndfire):
         return p * gain, gain
     
     def gain_function(self, f, th=None, dot=None):
-        if not th and not dot:
+        if th is None and dot is None:
             raise ValueError("Provide either an angle or dot product!")
         omega = 2*np.pi*f
         k = omega / self.c
