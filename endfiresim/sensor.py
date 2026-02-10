@@ -227,7 +227,7 @@ class CCardioidSynthetic(CEndfire):
             raise ValueError("Provide either an angle or dot product!")
         omega = 2*np.pi*f
         k = omega / self.c
-        if not dot:
+        if dot is None:
             dot = np.cos(th + np.pi)
         return 2*np.abs(np.cos(k*self.distance/2*dot + omega * self.path_delay/2))
     
