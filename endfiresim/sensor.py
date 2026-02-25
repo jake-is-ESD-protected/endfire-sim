@@ -189,9 +189,10 @@ class CEndfire(CSensor):
         gains = np.zeros_like(elev_grid)
         for i in range(elev_grid.shape[0]):
             for j in range(elev_grid.shape[1]):
-                azim = azim_grid[i,j] + np.pi
+                azim = azim_grid[i,j] + np.pi# Remove +np.pi unless intentionally flipping
                 elev = elev_grid[i,j]
-                pw = CWaveModelPlanar(self.freq, azim=azim, elev=elev)
+                theta_standard = np.pi - elev
+                pw = CWaveModelPlanar(self.freq, azim=azim, elev=theta_standard)  # or theta=theta_standard depending on parameter name
                 _, gain = self.receive(pw, 0)
                 gains[i,j] = gain
         return gains, (x, y, z)
