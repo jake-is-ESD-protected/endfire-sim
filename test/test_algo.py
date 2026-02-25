@@ -26,8 +26,8 @@ POINTS_CART_3D = (
 )
 
 POINT_SPH_3D = (
-    (1, 0, 0),
     (1, np.pi, 0),
+    (1, 0, 0),
     (1, np.pi/2, 0),
     (1, np.pi/2, np.pi)
 )
