@@ -229,7 +229,7 @@ class CCardioidSynthetic(CEndfire):
         omega = 2*np.pi*f
         k = omega / self.c
         if dot is None:
-            dot = np.cos(th + np.pi)
+            dot = np.cos(th)
         return 2*np.abs(np.cos(k*self.distance/2*dot + omega * self.path_delay/2))
     
     def gain_2d(self, at_freq=None):
