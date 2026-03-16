@@ -31,7 +31,7 @@ class CSensor:
         x, y, z = sph_to_cart_3d(np.ones_like(elev_grid), elev_grid, azim_grid)
         return np.ones_like(x), (x, y, z)
     
-    def to_plot(self, ax, size=0.5, color='k', log=False, at_freq=None):
+    def to_plot(self, ax, size=0.5, color='k', log=False, at_freq=None, label="Cardioid"):
         vec = self.direction_vec()
         is_3d = hasattr(ax, 'zaxis')
         
@@ -47,7 +47,7 @@ class CSensor:
             Y = self.xyz[1] + r * xyz[1]
             Z = self.xyz[2] + r * xyz[2]
             
-            ax.plot_surface(X, Y, Z, color=color, alpha=0.2, edgecolor='k', linewidth=0.5, label="Cardioid")
+            ax.plot_surface(X, Y, Z, color=color, alpha=0.2, edgecolor='k', linewidth=0.5, label=label)
             
             arrow_len = size * 2.5
             ax.quiver(self.xyz[0], self.xyz[1], self.xyz[2],
@@ -197,8 +197,8 @@ class CEndfire(CSensor):
                 gains[i,j] = gain
         return gains, (x, y, z)
     
-    def to_plot(self, ax, size=0.5, color='k', log=False, at_freq=None):
-        super().to_plot(ax, size, color, log, at_freq)
+    def to_plot(self, ax, size=0.5, color='k', log=False, at_freq=None, label="Cardioid"):
+        super().to_plot(ax, size, color, log, at_freq, label)
         is_3d = hasattr(ax, 'zaxis')
 
         if is_3d:
