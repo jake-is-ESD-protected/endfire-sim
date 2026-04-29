@@ -114,3 +114,39 @@ def test_wave_spheric_p_field_frame():
         p = sw.p(TEST_TIME_FRAME, TEST_FIELD_POS)
     except ValueError:
         pass
+
+
+def test_wave_spheric_init_with_signal_array():
+    t = np.arange(0, TEST_DUR, 1/TEST_FS)
+    known_signal = np.sin(2 * np.pi * TEST_FREQ * t)
+    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    assert sw.omega is None
+    assert sw.k is None
+    assert sw.signal_series is not None
+    assert sw.signal_series.dtype == np.complex128
+    assert len(sw.signal_series) == len(known_signal)
+    assert not np.allclose(np.imag(sw.signal_series), 0)
+
+
+def test_wave_spheric_p_with_signal_array():
+    n_samples = int(TEST_FS * TEST_DUR)
+    known_signal = np.zeros(n_samples)
+    known_signal[0] = 1.0 # impulse
+    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    delta = np.asarray(TEST_OBSERVER_POS) - sw.source_xyz
+    r = np.linalg.norm(delta)
+    expected_delay = r / TEST_C
+    p = sw.p(expected_delay, TEST_OBSERVER_POS)
+    expected_magnitude = TEST_AMP / r if r > 0.1 else np.inf
+    if not np.isinf(expected_magnitude):
+        npt.assert_allclose(np.real(p), expected_magnitude, atol=1e-3)
+
+
+def test_wave_spheric_p_with_signal_array_time_series():
+    t = np.arange(0, TEST_DUR, 1/TEST_FS)
+    known_signal = np.sin(2 * np.pi * (TEST_FREQ * t + 100 * t**2))
+    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    p = sw.p(TEST_TIME_FRAME[:100], TEST_OBSERVER_POS)
+    assert p.dtype in [np.complex128, np.float64]
+    assert p.shape == TEST_TIME_FRAME[:100].shape
+    assert not np.any(np.isnan(p))

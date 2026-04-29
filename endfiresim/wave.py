@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+from scipy.signal import hilbert
 from .algo import sph_to_cart_3d
 
 
@@ -84,15 +85,24 @@ class CWaveModelSpheric(CWaveModel):
         self.type = "spheric"
         self.fs = fs
         self.duration = duration
-        if f != "wn":
+        if isinstance(f, float) or isinstance(f, int):
             self.omega = 2*np.pi*f
             self.k = self.omega / self.c
-            self.noise_series = None
-        else:
+            self.signal_series = None
+        elif isinstance(f, np.ndarray):
             self.omega = None
             self.k = None
-            n_samples = int(self.fs * self.duration)
-            self.noise_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
+            n_samples = len(f)
+            self.signal_series = hilbert(f)
+        elif isinstance(f, str) == "wn":
+            if f == "wn":
+                self.omega = None
+                self.k = None
+                n_samples = int(self.fs * self.duration)
+                self.signal_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
+        else:
+            raise ValueError(f"Unknwon tpye {f} for source signal.")
+            
 
     def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
         t = np.asarray(t)
@@ -100,15 +110,15 @@ class CWaveModelSpheric(CWaveModel):
         if t.ndim > 0 and pos_xyz.ndim > 1 and pos_xyz.shape[0] > 3:
             raise ValueError("Either fix one point in time or one in space!")
         
-        if self.f == "wn":
+        if self.omega == None:
             delta = pos_xyz - np.reshape(self.source_xyz, (3,) + (1,)*(pos_xyz.ndim-1))
             r = np.linalg.norm(delta, axis=0)
             time_delay = r / self.c
             delayed_t = t - time_delay
             delayed_idx = (delayed_t * self.fs).astype(int)
-            valid = (delayed_idx >= 0) & (delayed_idx < len(self.noise_series))
+            valid = (delayed_idx >= 0) & (delayed_idx < len(self.signal_series))
             values = np.zeros_like(delayed_idx, dtype=complex)
-            values[valid] = self.noise_series[delayed_idx[valid]]
+            values[valid] = self.signal_series[delayed_idx[valid]]
             with np.errstate(divide='ignore', invalid='ignore'):
                 magnitude = np.where(r > 0.1, self.amp / r, np.inf)
                 wave = magnitude * values
