@@ -94,12 +94,14 @@ class CWaveModelSpheric(CWaveModel):
             self.k = None
             n_samples = len(f)
             self.signal_series = hilbert(f)
-        elif isinstance(f, str) == "wn":
+        elif isinstance(f, str):
             if f == "wn":
                 self.omega = None
                 self.k = None
                 n_samples = int(self.fs * self.duration)
                 self.signal_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
+            else:
+                raise ValueError(f"Unknwon signal specifier {f}")
         else:
             raise ValueError(f"Unknwon tpye {f} for source signal.")
             
