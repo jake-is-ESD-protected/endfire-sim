@@ -150,3 +150,39 @@ def test_wave_spheric_p_with_signal_array_time_series():
     assert p.dtype in [np.complex128, np.float64]
     assert p.shape == TEST_TIME_FRAME[:100].shape
     assert not np.any(np.isnan(p))
+
+
+def test_wave_spheric_init_with_white_noise_string():
+    sw = CWaveModelSpheric("wn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    assert sw.omega is None
+    assert sw.k is None
+    assert sw.signal_series is not None
+    assert sw.signal_series.dtype == np.complex128
+    assert len(sw.signal_series) == int(TEST_FS * TEST_DUR)
+
+
+def test_wave_spheric_init_with_pink_noise_string():
+    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    assert sw.omega is None
+    assert sw.k is None
+    assert sw.signal_series is not None
+    assert sw.signal_series.dtype == np.complex128
+    assert len(sw.signal_series) == int(TEST_FS * TEST_DUR)
+    assert not np.any(np.isnan(sw.signal_series))
+
+
+def test_wave_spheric_pink_noise_has_low_frequency_tilt():
+    np.random.seed(0)
+    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    spectrum = np.abs(np.fft.rfft(np.real(sw.signal_series)))
+    low = np.mean(spectrum[1:100])
+    high = np.mean(spectrum[-100:])
+    assert low > high
+
+
+def test_wave_spheric_p_with_pink_noise_time_series():
+    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    p = sw.p(TEST_TIME_FRAME[:100], TEST_OBSERVER_POS)
+    assert p.dtype in [np.complex128, np.float64]
+    assert p.shape == TEST_TIME_FRAME[:100].shape
+    assert not np.any(np.isnan(p))

@@ -4,6 +4,16 @@ from scipy.signal import hilbert
 from .algo import sph_to_cart_3d
 
 
+def _pink_noise(n_samples: int) -> np.ndarray:
+    white = np.random.randn(n_samples)
+    spectrum = np.fft.rfft(white)
+    freqs = np.fft.rfftfreq(n_samples)
+    ramp = np.ones_like(freqs)
+    ramp[1:] = 1 / np.sqrt(freqs[1:])
+    pink = np.fft.irfft(spectrum * ramp, n=n_samples)
+    return pink / (np.std(pink) + 1e-12)
+
+
 class CWaveModel(ABC):
     def __init__(self):
         self.type = None
@@ -95,11 +105,13 @@ class CWaveModelSpheric(CWaveModel):
             n_samples = len(f)
             self.signal_series = hilbert(f)
         elif isinstance(f, str):
+            self.omega = None
+            self.k = None
+            n_samples = int(self.fs * self.duration)
             if f == "wn":
-                self.omega = None
-                self.k = None
-                n_samples = int(self.fs * self.duration)
                 self.signal_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
+            elif f == "pn":
+                self.signal_series = _pink_noise(n_samples) + 1j * _pink_noise(n_samples)
             else:
                 raise ValueError(f"Unknwon signal specifier {f}")
         else:
