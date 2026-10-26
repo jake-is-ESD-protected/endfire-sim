@@ -94,6 +94,7 @@ class CWaveModelSpheric(CWaveModel):
         self.source_xyz = source_xyz
         self.type = "spheric"
         self.duration = duration
+        self._signal_fs = None # caching flag to prevent p() from generating a new signal_series on each call
         if isinstance(f, float) or isinstance(f, int):
             self.omega = 2*np.pi*f
             self.k = self.omega / self.c
@@ -121,12 +122,14 @@ class CWaveModelSpheric(CWaveModel):
         if self.omega is None:
             if fs is None:
                 raise ValueError("A sampling rate is required for sampled signals.")
-            n_samples = int(fs * self.duration)
-            if isinstance(self.f, str) and self.f == "wn":
-                self.signal_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
-            elif isinstance(self.f, str) and self.f == "pn":
-                self.signal_series = _pink_noise(n_samples) + 1j * _pink_noise(n_samples)
-            signal_fs = fs
+            if self.signal_series is None or self._signal_fs != fs:
+                n_samples = int(fs * self.duration)
+                if isinstance(self.f, str) and self.f == "wn":
+                    self.signal_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
+                elif isinstance(self.f, str) and self.f == "pn":
+                    self.signal_series = _pink_noise(n_samples) + 1j * _pink_noise(n_samples)
+                self._signal_fs = fs
+            signal_fs = self._signal_fs if isinstance(self.f, str) else fs
             delta = pos_xyz - np.reshape(self.source_xyz, (3,) + (1,)*(pos_xyz.ndim-1))
             r = np.linalg.norm(delta, axis=0)
             time_delay = r / self.c
