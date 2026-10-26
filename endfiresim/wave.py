@@ -37,7 +37,11 @@ class CWaveModel(ABC):
 
 class CWaveSuperposition(CWaveModel):
     def __init__(self, *waves):
+        c = waves[0].c
+        if any(wave.c != c for wave in waves[1:]):
+            raise ValueError("All waves in a superposition must have the same speed of sound c.")
         self.waves = list(waves)
+        self.c = c
         self.type = "superposition"
     
     def __add__(self, other):

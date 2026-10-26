@@ -1,3 +1,4 @@
+import pytest
 from endfiresim.wave import *
 from numpy import testing as npt
 
@@ -38,6 +39,21 @@ def test_wave_spheric_init():
     npt.assert_allclose(sw.omega, TEST_FREQ*np.pi*2)
     npt.assert_allclose(sw.k, TEST_FREQ*np.pi*2/TEST_C)
     assert sw.type == "spheric"
+
+
+def test_wave_superposition_exposes_common_speed_of_sound():
+    planar = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C)
+    spheric = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C)
+    superposition = planar + spheric
+    assert superposition.c == TEST_C
+    assert superposition.waves == [planar, spheric]
+
+
+def test_wave_superposition_rejects_different_speeds_of_sound():
+    planar = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C)
+    spheric = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C + 1)
+    with pytest.raises(ValueError, match="same speed of sound"):
+        planar + spheric
 
 
 def test_wave_planar_vec():
