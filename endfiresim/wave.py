@@ -19,7 +19,7 @@ class CWaveModel(ABC):
         self.type = None
 
     @abstractmethod
-    def p(self, t: float | np.ndarray, pos_xyz: tuple):
+    def p(self, t: float | np.ndarray, pos_xyz: tuple, fs: int | None = None):
         pass
 
     @abstractmethod
@@ -51,8 +51,8 @@ class CWaveSuperposition(CWaveModel):
     def __radd__(self, other):
         return self.__add__(other)
     
-    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
-        total_p = sum(wave.p(t, pos_xyz) for wave in self.waves)
+    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray, fs: int | None = None):
+        total_p = sum(wave.p(t, pos_xyz, fs=fs) for wave in self.waves)
         return total_p
     
     def vec(self, ref_point: tuple | np.ndarray = None):
@@ -77,7 +77,7 @@ class CWaveModelPlanar(CWaveModel):
     def vec(self, ref_point: tuple | np.ndarray = None):
         return sph_to_cart_3d(1, self.elev, self.azim)
 
-    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
+    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray, fs: int | None = None):
         t = np.asarray(t)
         pos_xyz = np.asarray(pos_xyz)
         if len(t.shape) > 0 and pos_xyz.shape != (3,):
@@ -87,13 +87,12 @@ class CWaveModelPlanar(CWaveModel):
     
 
 class CWaveModelSpheric(CWaveModel):
-    def __init__(self, f: float, amp: int=1, c=343, source_xyz: tuple=(0, 0, 0), fs: int=8000, duration: float=1.0) -> None:
+    def __init__(self, f: float, amp: int=1, c=343, source_xyz: tuple=(0, 0, 0), duration: float=1.0) -> None:
         self.f = f
         self.amp = amp
         self.c = c
         self.source_xyz = source_xyz
         self.type = "spheric"
-        self.fs = fs
         self.duration = duration
         if isinstance(f, float) or isinstance(f, int):
             self.omega = 2*np.pi*f
@@ -102,34 +101,37 @@ class CWaveModelSpheric(CWaveModel):
         elif isinstance(f, np.ndarray):
             self.omega = None
             self.k = None
-            n_samples = len(f)
             self.signal_series = hilbert(f)
         elif isinstance(f, str):
             self.omega = None
             self.k = None
-            n_samples = int(self.fs * self.duration)
-            if f == "wn":
-                self.signal_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
-            elif f == "pn":
-                self.signal_series = _pink_noise(n_samples) + 1j * _pink_noise(n_samples)
-            else:
+            self.signal_series = None
+            if f not in ['wn', 'pn']:
                 raise ValueError(f"Unknwon signal specifier {f}")
         else:
             raise ValueError(f"Unknwon tpye {f} for source signal.")
             
 
-    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray):
+    def p(self, t: float | np.ndarray, pos_xyz: tuple | np.ndarray, fs: int | None = None):
         t = np.asarray(t)
         pos_xyz = np.asarray(pos_xyz)
         if t.ndim > 0 and pos_xyz.ndim > 1 and pos_xyz.shape[0] > 3:
             raise ValueError("Either fix one point in time or one in space!")
-        
-        if self.omega == None:
+
+        if self.omega is None:
+            if fs is None:
+                raise ValueError("A sampling rate is required for sampled signals.")
+            n_samples = int(fs * self.duration)
+            if isinstance(self.f, str) and self.f == "wn":
+                self.signal_series = np.random.randn(n_samples) + 1j*np.random.randn(n_samples)
+            elif isinstance(self.f, str) and self.f == "pn":
+                self.signal_series = _pink_noise(n_samples) + 1j * _pink_noise(n_samples)
+            signal_fs = fs
             delta = pos_xyz - np.reshape(self.source_xyz, (3,) + (1,)*(pos_xyz.ndim-1))
             r = np.linalg.norm(delta, axis=0)
             time_delay = r / self.c
             delayed_t = t - time_delay
-            delayed_idx = (delayed_t * self.fs).astype(int)
+            delayed_idx = (delayed_t * signal_fs).astype(int)
             valid = (delayed_idx >= 0) & (delayed_idx < len(self.signal_series))
             values = np.zeros_like(delayed_idx, dtype=complex)
             values[valid] = self.signal_series[delayed_idx[valid]]

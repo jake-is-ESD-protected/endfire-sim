@@ -7,9 +7,9 @@ class CSensor:
     def __init__(self, xyz: tuple):
         self.xyz = xyz
     
-    def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
+    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, fs: int):
         gain = 1.
-        return wave_model.p(t, self.xyz), gain
+        return wave_model.p(t, self.xyz, fs), gain
     
     def direction_vec(self):
         return (0, 0, 0)
@@ -85,8 +85,8 @@ class CCardioidIdeal(CSensor):
         self.elev = elev
         self.azim = azim
     
-    def receive(self, wave_model: CWaveModel, t: float | np.ndarray):
-        p = wave_model.p(t, self.xyz)
+    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, fs: int):
+        p = wave_model.p(t, self.xyz, fs)
         wave_vec = wave_model.vec(self.xyz)
         cardioid_vec = np.array(self.direction_vec())
         gain = np.sqrt(((1 + np.dot(-cardioid_vec, wave_vec)) * 2))
@@ -142,18 +142,18 @@ class CEndfire(CSensor):
     def direction_vec(self):
         return sph_to_cart_3d(1, self.elev, self.azim)
     
-    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, order: int = None):
+    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, fs: int, order: int = None):
         ps = []
         for i, pos in enumerate(self.poss):
             monop = CSensor(pos)
-            p, _ = monop.receive(wave_model, t - self.path_delay * i)
+            p, _ = monop.receive(wave_model, t - self.path_delay * i, fs)
             ps.append(p)
         ps = np.vstack(ps)
         self.ps = ps
 
         if order:
             # differential BF
-            n_d = self.path_delay * 48000
+            n_d = self.path_delay * fs
             num_mics = len(ps)
 
             if order >= num_mics:
@@ -179,7 +179,7 @@ class CEndfire(CSensor):
         f = at_freq if at_freq else self.freq
         for i, azim in enumerate(azim_grid):
             pw = CWaveModelPlanar(f, azim=azim+np.pi)
-            _, gain = self.receive(pw, 0)
+            _, gain = self.receive(pw, 0, fs=48000)
             gains[i] = gain
         return gains, (x, y)
     
@@ -193,7 +193,7 @@ class CEndfire(CSensor):
                 elev = elev_grid[i,j]
                 theta_standard = np.pi - elev
                 pw = CWaveModelPlanar(self.freq, azim=azim, elev=theta_standard)  # or theta=theta_standard depending on parameter name
-                _, gain = self.receive(pw, 0)
+                _, gain = self.receive(pw, 0, fs=48000)
                 gains[i,j] = gain
         return gains, (x, y, z)
     
@@ -215,8 +215,8 @@ class CCardioidSynthetic(CEndfire):
         super().__init__(xyz=xyz, distance=distance, target_freq=target_freq, n_sensors=n_sensors,
                          elev=elev, azim=azim, c=c)
     
-    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, at_freq=None):
-        p = wave_model.p(t, self.xyz)
+    def receive(self, wave_model: CWaveModel, t: float | np.ndarray, fs: int, at_freq=None):
+        p = wave_model.p(t, self.xyz, fs)
         wave_vec = wave_model.vec(self.xyz)
         cardioid_vec = np.array(self.direction_vec())
         f = at_freq if at_freq else self.freq

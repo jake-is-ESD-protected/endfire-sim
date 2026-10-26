@@ -52,14 +52,14 @@ def test_wave_spheric_vec():
 
 def test_wave_planar_p_point_step():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
-    p = pw.p(TEST_TIME_STAMP, TEST_OBSERVER_POS)
+    p = pw.p(TEST_TIME_STAMP, TEST_OBSERVER_POS, TEST_FS)
     assert p.dtype == np.complex128
     assert p.shape == ()
 
 
 def test_wave_planar_p_point_frame():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
-    p = pw.p(TEST_TIME_FRAME, TEST_OBSERVER_POS)
+    p = pw.p(TEST_TIME_FRAME, TEST_OBSERVER_POS, TEST_FS)
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_TIME_FRAME)
     npt.assert_allclose(np.max(np.real(p)), pw.amp, atol=1e-3)
@@ -68,7 +68,7 @@ def test_wave_planar_p_point_frame():
 
 def test_wave_planar_p_field_step():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
-    p = pw.p(TEST_TIME_STAMP, TEST_FIELD_POS)
+    p = pw.p(TEST_TIME_STAMP, TEST_FIELD_POS, TEST_FS)
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_FIELD_POS)[1:]
     npt.assert_allclose(np.max(np.real(p)), pw.amp, atol=1e-3)
@@ -78,21 +78,21 @@ def test_wave_planar_p_field_step():
 def test_wave_planar_p_field_frame():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     try:
-        p = pw.p(TEST_TIME_FRAME, TEST_FIELD_POS)
+        p = pw.p(TEST_TIME_FRAME, TEST_FIELD_POS, TEST_FS)
     except ValueError:
         pass
 
 
 def test_wave_spheric_p_point_frame():
     sw = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC)
-    p = sw.p(TEST_TIME_STAMP, TEST_OBSERVER_POS)
+    p = sw.p(TEST_TIME_STAMP, TEST_OBSERVER_POS, TEST_FS)
     assert p.dtype == np.complex128
     assert p.shape == ()
 
 
 def test_wave_spheric_p_point_frame():
     sw = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC)
-    p = sw.p(TEST_TIME_FRAME, TEST_OBSERVER_POS)
+    p = sw.p(TEST_TIME_FRAME, TEST_OBSERVER_POS, TEST_FS)
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_TIME_FRAME)
     delta = np.asarray(TEST_OBSERVER_POS) - sw.source_xyz
@@ -103,7 +103,7 @@ def test_wave_spheric_p_point_frame():
 
 def test_wave_spheric_p_field_step():
     sw = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC)
-    p = sw.p(TEST_TIME_STAMP, TEST_FIELD_POS)
+    p = sw.p(TEST_TIME_STAMP, TEST_FIELD_POS, TEST_FS)
     assert p.dtype == np.complex128
     assert p.shape == np.shape(TEST_FIELD_POS)[1:]
 
@@ -111,7 +111,7 @@ def test_wave_spheric_p_field_step():
 def test_wave_spheric_p_field_frame():
     sw = CWaveModelSpheric(TEST_FREQ, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC)
     try:
-        p = sw.p(TEST_TIME_FRAME, TEST_FIELD_POS)
+        p = sw.p(TEST_TIME_FRAME, TEST_FIELD_POS, TEST_FS)
     except ValueError:
         pass
 
@@ -119,7 +119,7 @@ def test_wave_spheric_p_field_frame():
 def test_wave_spheric_init_with_signal_array():
     t = np.arange(0, TEST_DUR, 1/TEST_FS)
     known_signal = np.sin(2 * np.pi * TEST_FREQ * t)
-    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_DUR)
     assert sw.omega is None
     assert sw.k is None
     assert sw.signal_series is not None
@@ -132,11 +132,11 @@ def test_wave_spheric_p_with_signal_array():
     n_samples = int(TEST_FS * TEST_DUR)
     known_signal = np.zeros(n_samples)
     known_signal[0] = 1.0 # impulse
-    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_DUR)
     delta = np.asarray(TEST_OBSERVER_POS) - sw.source_xyz
     r = np.linalg.norm(delta)
     expected_delay = r / TEST_C
-    p = sw.p(expected_delay, TEST_OBSERVER_POS)
+    p = sw.p(expected_delay, TEST_OBSERVER_POS, TEST_FS)
     expected_magnitude = TEST_AMP / r if r > 0.1 else np.inf
     if not np.isinf(expected_magnitude):
         npt.assert_allclose(np.real(p), expected_magnitude, atol=1e-3)
@@ -145,35 +145,31 @@ def test_wave_spheric_p_with_signal_array():
 def test_wave_spheric_p_with_signal_array_time_series():
     t = np.arange(0, TEST_DUR, 1/TEST_FS)
     known_signal = np.sin(2 * np.pi * (TEST_FREQ * t + 100 * t**2))
-    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
-    p = sw.p(TEST_TIME_FRAME[:100], TEST_OBSERVER_POS)
+    sw = CWaveModelSpheric(known_signal, TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_DUR)
+    p = sw.p(TEST_TIME_FRAME[:100], TEST_OBSERVER_POS, TEST_FS)
     assert p.dtype in [np.complex128, np.float64]
     assert p.shape == TEST_TIME_FRAME[:100].shape
     assert not np.any(np.isnan(p))
 
 
 def test_wave_spheric_init_with_white_noise_string():
-    sw = CWaveModelSpheric("wn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    sw = CWaveModelSpheric("wn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_DUR)
     assert sw.omega is None
     assert sw.k is None
-    assert sw.signal_series is not None
-    assert sw.signal_series.dtype == np.complex128
-    assert len(sw.signal_series) == int(TEST_FS * TEST_DUR)
+    assert sw.signal_series is None
 
 
 def test_wave_spheric_init_with_pink_noise_string():
-    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_DUR)
     assert sw.omega is None
     assert sw.k is None
-    assert sw.signal_series is not None
-    assert sw.signal_series.dtype == np.complex128
-    assert len(sw.signal_series) == int(TEST_FS * TEST_DUR)
-    assert not np.any(np.isnan(sw.signal_series))
+    assert sw.signal_series is None
 
 
 def test_wave_spheric_pink_noise_has_low_frequency_tilt():
     np.random.seed(0)
-    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
+    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_DUR)
+    sw.p(TEST_TIME_STAMP, TEST_OBSERVER_POS, TEST_FS)
     spectrum = np.abs(np.fft.rfft(np.real(sw.signal_series)))
     low = np.mean(spectrum[1:100])
     high = np.mean(spectrum[-100:])
@@ -181,8 +177,8 @@ def test_wave_spheric_pink_noise_has_low_frequency_tilt():
 
 
 def test_wave_spheric_p_with_pink_noise_time_series():
-    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_FS, TEST_DUR)
-    p = sw.p(TEST_TIME_FRAME[:100], TEST_OBSERVER_POS)
+    sw = CWaveModelSpheric("pn", TEST_AMP, TEST_C, TEST_SRC_POS_SPHERIC, TEST_DUR)
+    p = sw.p(TEST_TIME_FRAME[:100], TEST_OBSERVER_POS, TEST_FS)
     assert p.dtype in [np.complex128, np.float64]
     assert p.shape == TEST_TIME_FRAME[:100].shape
     assert not np.any(np.isnan(p))

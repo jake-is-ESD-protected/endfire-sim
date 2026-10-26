@@ -32,9 +32,9 @@ def test_sensor_init():
 def test_sensor_receive():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     s = CSensor(TEST_SENSOR_POS)
-    p, gain = s.receive(pw, TEST_TIME_FRAME)
+    p, gain = s.receive(pw, TEST_TIME_FRAME, TEST_FS)
     assert gain == 1.
-    npt.assert_allclose(p, pw.p(TEST_TIME_FRAME, s.xyz))
+    npt.assert_allclose(p, pw.p(TEST_TIME_FRAME, s.xyz, TEST_FS))
 
 
 def test_cardioid_ideal_init():
@@ -57,7 +57,7 @@ def test_cardioid_ideal_vec():
 def test_cardioid_ideal_receive_back():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_CARDIOID_ELEV0, TEST_AZIM_PLANAR)
-    p, gain = ci.receive(pw, TEST_TIME_FRAME)
+    p, gain = ci.receive(pw, TEST_TIME_FRAME, TEST_FS)
     assert p.shape == TEST_TIME_FRAME.shape
     npt.assert_allclose(p, np.zeros_like(p))
     npt.assert_allclose(gain, 0.)
@@ -66,7 +66,7 @@ def test_cardioid_ideal_receive_back():
 def test_cardioid_ideal_receive_front():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_CARDIOID_ELEV0, TEST_AZIM_PLANAR + np.pi)
-    p, gain = ci.receive(pw, TEST_TIME_FRAME)
+    p, gain = ci.receive(pw, TEST_TIME_FRAME, TEST_FS)
     assert p.shape == TEST_TIME_FRAME.shape
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
     npt.assert_allclose(gain, 2.)
@@ -75,7 +75,7 @@ def test_cardioid_ideal_receive_front():
 def test_cardioid_ideal_receive_side():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C, TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_CARDIOID_ELEV0, TEST_AZIM_PLANAR + np.pi/2)
-    p, gain = ci.receive(pw, TEST_TIME_FRAME)
+    p, gain = ci.receive(pw, TEST_TIME_FRAME, TEST_FS)
     assert p.shape == TEST_TIME_FRAME.shape
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
     npt.assert_allclose(gain, np.sqrt(2.))
@@ -84,7 +84,7 @@ def test_cardioid_ideal_receive_side():
 def test_cardioid_ideal_receive_top():
     pw = CWaveModelPlanar(TEST_FREQ, TEST_AMP, TEST_C,  TEST_ELEV_PLANAR, TEST_AZIM_PLANAR)
     ci = CCardioidIdeal(TEST_SENSOR_POS, TEST_CARDIOID_ELEV0 + np.pi/2, TEST_AZIM_PLANAR)
-    p, gain = ci.receive(pw, TEST_TIME_FRAME)
+    p, gain = ci.receive(pw, TEST_TIME_FRAME, TEST_FS)
     assert p.shape == TEST_TIME_FRAME.shape
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
     npt.assert_allclose(gain, np.sqrt(2.))
@@ -129,7 +129,7 @@ def test_cardioid_endfire_receive_back():
                    n_sensors=2,
                    elev=TEST_CARDIOID_ELEV0,
                    azim=TEST_AZIM_PLANAR)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 0.0, atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain, atol=1e-7)
 
@@ -141,7 +141,7 @@ def test_cardioid_endfire_receive_front():
                    n_sensors=2,
                    elev=TEST_CARDIOID_ELEV0,
                    azim=TEST_AZIM_PLANAR + np.pi)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 2., atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -153,7 +153,7 @@ def test_cardioid_endfire_receive_side():
                    n_sensors=2,
                    elev=TEST_CARDIOID_ELEV0,
                    azim=TEST_AZIM_PLANAR + np.pi/2)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, np.sqrt(2.), atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -165,7 +165,7 @@ def test_cardioid_endfire_receive_top():
                    n_sensors=2,
                    elev=TEST_CARDIOID_ELEV0 + np.pi/2,
                    azim=TEST_AZIM_PLANAR)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, np.sqrt(2.), atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -177,7 +177,7 @@ def test_n3_endfire_receive_back():
                    n_sensors=3,
                    elev=TEST_CARDIOID_ELEV0,
                    azim=TEST_AZIM_PLANAR)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 1., atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain, atol=1e-7)
 
@@ -189,7 +189,7 @@ def test_n3_endfire_receive_front():
                    n_sensors=3,
                    elev=TEST_CARDIOID_ELEV0,
                    azim=TEST_AZIM_PLANAR + np.pi)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 3., atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -201,7 +201,7 @@ def test_n3_endfire_receive_side():
                    n_sensors=3,
                    elev=TEST_CARDIOID_ELEV0,
                    azim=TEST_AZIM_PLANAR + np.pi/2)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 1., atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -213,7 +213,7 @@ def test_n3_endfire_receive_top():
                    n_sensors=3,
                    elev=TEST_CARDIOID_ELEV0 + np.pi/2,
                    azim=TEST_AZIM_PLANAR)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 1., atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -257,7 +257,7 @@ def test_cardioid_synthetic_receive_back():
                              n_sensors=2,
                              elev=TEST_CARDIOID_ELEV0,
                              azim=TEST_AZIM_PLANAR)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 0.0, atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain, atol=1e-7)
 
@@ -269,7 +269,7 @@ def test_cardioid_synthetic_receive_front():
                              n_sensors=2,
                              elev=TEST_CARDIOID_ELEV0,
                              azim=TEST_AZIM_PLANAR + np.pi)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, 2., atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -281,7 +281,7 @@ def test_cardioid_synthetic_receive_side():
                              n_sensors=2,
                              elev=TEST_CARDIOID_ELEV0,
                              azim=TEST_AZIM_PLANAR + np.pi/2)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, np.sqrt(2.), atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
 
@@ -293,6 +293,6 @@ def test_cardioid_synthetic_receive_top():
                              n_sensors=2,
                              elev=TEST_CARDIOID_ELEV0 + np.pi/2,
                              azim=TEST_AZIM_PLANAR)
-    p, gain = cef.receive(pw, TEST_TIME_FRAME)
+    p, gain = cef.receive(pw, TEST_TIME_FRAME, TEST_FS)
     npt.assert_allclose(gain, np.sqrt(2.), atol=1e-7)
     npt.assert_allclose(np.max(np.real(p)), pw.amp * gain)
