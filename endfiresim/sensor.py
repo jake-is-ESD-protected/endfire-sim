@@ -3,6 +3,21 @@ from .wave import CWaveModel, CWaveModelPlanar
 from .algo import sph_to_cart_3d, sph_to_cart_2d
 from math import comb
 
+
+def _advance(signal: np.ndarray, samples: float, fs: int) -> np.ndarray:
+    """Advance a frame by a possibly fractional number of samples."""
+    if samples == 0 or signal.size < 2:
+        return signal.copy()
+    n = signal.size
+    if np.iscomplexobj(signal):
+        freq = np.fft.fftfreq(n, d=1 / fs)
+        return np.fft.ifft(np.fft.fft(signal) * np.exp(2j * np.pi * freq * samples / fs))
+    freq = np.fft.rfftfreq(n, d=1 / fs)
+    return np.fft.irfft(
+        np.fft.rfft(signal) * np.exp(2j * np.pi * freq * samples / fs), n=n
+    )
+
+
 class CSensor:
     def __init__(self, xyz: tuple):
         self.xyz = xyz
@@ -143,29 +158,65 @@ class CEndfire(CSensor):
         return sph_to_cart_3d(1, self.elev, self.azim)
     
     def receive(self, wave_model: CWaveModel, t: float | np.ndarray, fs: int, order: int = None):
-        ps = []
-        for i, pos in enumerate(self.poss):
-            monop = CSensor(pos)
-            p, _ = monop.receive(wave_model, t - self.path_delay * i, fs)
-            ps.append(p)
-        ps = np.vstack(ps)
+        # Physics engine: the wave model renders the field at all sub-mic
+        # positions in one call (acoular PointSource over a MicGeom for
+        # sampled spherical sources). Here we only apply the endfire delay
+        # and delay-and-sum the channels, preserving the legacy interface.
+        t = np.asarray(t)
+        n = len(t) if t.ndim > 0 else 1
+        s0 = int((t[0] if t.ndim > 0 else t) * fs)
+        n_gen = n + max(s0, 0) + 2
+        # ``poss`` is stored as (n_mics, 3); transpose explicitly because a
+        # three-microphone array is otherwise ambiguous with (3, n_mics).
+        field = np.asarray(wave_model.field(np.asarray(self.poss).T, n_gen, fs))  # (n_gen, M)
+        # absolute time base of t (legacy floor-index semantics)
+        idx0 = np.arange(n) + s0
+        valid0 = (idx0 >= 0) & (idx0 < n_gen)
+        base = np.zeros((field.shape[1], n), dtype=field.dtype)
+        base[:, valid0] = field[idx0[valid0]].T
+        # endfire delay: sub-mic i is delayed by i * path_delay. For frame
+        # signals this is an exact fractional delay (FFT phase ramp); for
+        # analytic waves (single time stamp, .omega available) it is the
+        # exact phase ramp; otherwise fall back to integer sample shift.
+        n_d = self.path_delay * fs
+        ps = np.zeros_like(base)
+        omega = getattr(wave_model, "omega", None)
+        if n > 1:
+            if np.iscomplexobj(base):
+                ramp = np.exp(-2j * np.pi * np.fft.fftfreq(n, d=1.0 / fs) * self.path_delay)
+                for i in range(base.shape[0]):
+                    ps[i] = np.fft.ifft(np.fft.fft(base[i]) * ramp ** i)
+            else:
+                ramp = np.exp(-2j * np.pi * np.fft.rfftfreq(n, d=1.0 / fs) * self.path_delay)
+                for i in range(base.shape[0]):
+                    ps[i] = np.fft.irfft(np.fft.rfft(base[i]) * ramp ** i, n)
+        elif omega is not None:
+            for i in range(base.shape[0]):
+                ps[i] = base[i] * np.exp(1j * omega * i * self.path_delay)
+        else:
+            for i in range(base.shape[0]):
+                shift = int(i * n_d)
+                if shift <= 0:
+                    ps[i] = base[i]
+                elif shift < n:
+                    ps[i, shift:] = base[i, :n - shift]
         self.ps = ps
 
-        if order:
-            # differential BF
-            n_d = self.path_delay * fs
+        if order is not None:
+            if not isinstance(order, (int, np.integer)) or order < 0:
+                raise ValueError("order must be a non-negative integer")
             num_mics = len(ps)
-
             if order >= num_mics:
                 raise ValueError(f"Order {order} requires {order+1} mics. Have {num_mics}.")
 
+            # Differential beamforming needs the same fractional advance as the
+            # legacy integer np.roll, but np.roll cannot represent non-integer
+            # delays (the normal case for arbitrary sample rates).
             p_tot = np.zeros_like(ps[0])
             for m in range(order + 1):
-                coefficient = (-1)**m * comb(order, m) # Calculate binomial coefficient
-                delayed_signal = np.roll(ps[m], -m * n_d)
-                p_tot += coefficient * delayed_signal
+                coefficient = (-1) ** m * comb(order, m)
+                p_tot += coefficient * _advance(ps[m], m * n_d, fs)
         else:
-            # DAS BF
             p_tot = np.sum(ps, axis=0)
 
         gain = np.sqrt(np.mean(np.abs(p_tot)**2) / np.mean(np.abs(ps[0])**2))
